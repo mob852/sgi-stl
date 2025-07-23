@@ -107,6 +107,10 @@ struct _Rb_tree_base_iterator
   typedef ptrdiff_t difference_type;
   _Base_ptr _M_node;
 
+
+  //查找在树中的下一个节点，如果有右子树，找到右子树中的最小节点，即一直left
+  //没有右子树的话，找到作为左子树的分叉点，这个左子树的父节点即下一个节点
+  //因为有可能最后指向哨兵节点 所以出循环以后要判断这个分叉点是不是作为左子树
   void _M_increment()
   {
     if (_M_node->_M_right != 0) {
@@ -125,9 +129,12 @@ struct _Rb_tree_base_iterator
     }
   }
 
+  //如果当前位于end 上一个节点即最大值节点
+  //如果有左子树 即左子树中最大点
+  //没有左子树 找到作为右子树的分叉点
   void _M_decrement()
   {
-      ////TODO: _M_node->parent->parent 怎么会等于_M_node 自身呢？？？
+
     if (_M_node->_M_color == _S_rb_tree_red &&
         _M_node->_M_parent->_M_parent == _M_node)
       _M_node = _M_node->_M_right;
@@ -148,6 +155,7 @@ struct _Rb_tree_base_iterator
   }
 };
 
+//实现迭代器初始化，访问节点
 template <class _Value, class _Ref, class _Ptr>
 struct _Rb_tree_iterator : public _Rb_tree_base_iterator
 {
@@ -257,33 +265,31 @@ _Rb_tree_rotate_right(_Rb_tree_node_base* __x, _Rb_tree_node_base*& __root)
   __x->_M_parent = __y;
 }
 
-// 全局函数
-// 重新令树形平衡（改变颜色及旋转树形）
-// 参数1为新增节点，参数2为root
 inline void 
 _Rb_tree_rebalance(_Rb_tree_node_base* __x, _Rb_tree_node_base*& __root)
 {
   __x->_M_color = _S_rb_tree_red;   // 新节点必须是红色
+  //父节点是红色
   while (__x != __root && __x->_M_parent->_M_color == _S_rb_tree_red) {
-    if (__x->_M_parent == __x->_M_parent->_M_parent->_M_left) {
-      _Rb_tree_node_base* __y = __x->_M_parent->_M_parent->_M_right;
-      if (__y && __y->_M_color == _S_rb_tree_red) {
+    if (__x->_M_parent == __x->_M_parent->_M_parent->_M_left) {      //父节点是左子树
+      _Rb_tree_node_base* __y = __x->_M_parent->_M_parent->_M_right; //叔叔节点
+      if (__y && __y->_M_color == _S_rb_tree_red) {     //叔叔节点是红色，变色+上移
         __x->_M_parent->_M_color = _S_rb_tree_black;
         __y->_M_color = _S_rb_tree_black;
         __x->_M_parent->_M_parent->_M_color = _S_rb_tree_red;
         __x = __x->_M_parent->_M_parent;
       }
-      else {
-        if (__x == __x->_M_parent->_M_right) {
+      else {                                          //叔叔节点是黑色，分情况旋转
+        if (__x == __x->_M_parent->_M_right) {        //当前节点是右子树，左旋+进入下一步
           __x = __x->_M_parent;
           _Rb_tree_rotate_left(__x, __root);
         }
-        __x->_M_parent->_M_color = _S_rb_tree_black;
+        __x->_M_parent->_M_color = _S_rb_tree_black;  //当前节点是左子树，右旋+变色
         __x->_M_parent->_M_parent->_M_color = _S_rb_tree_red;
         _Rb_tree_rotate_right(__x->_M_parent->_M_parent, __root);
       }
     }
-    else {
+    else {                                            // 对称处理：父节点是右子树
       _Rb_tree_node_base* __y = __x->_M_parent->_M_parent->_M_left;
       if (__y && __y->_M_color == _S_rb_tree_red) {
         __x->_M_parent->_M_color = _S_rb_tree_black;
